@@ -1,0 +1,25 @@
+{
+  "name": "ethical-walls-matter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/dev-sql.mjs",
+    "start:sql": "node scripts/dev-sql.mjs",
+    "start:json": "node scripts/dev.mjs",
+    "setup:sql": "node scripts/setup-sql.mjs",
+    "test:sql": "node --test tests/sql.integration.test.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/integration.test.mjs",
+    "doctor": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/doctor.ps1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "version": "1.0.0",
+  "description": "A law-firm integration lab: client-matter validation, ethical walls, and policy-gated vendor workspaces.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RamiJaloudi/ethical-walls-matter.git"
+  }
+}

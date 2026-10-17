@@ -1,0 +1,70 @@
+import {test,before,after} from 'node:test';
+import assert from 'node:assert/strict';
+import {startApp} from '../scripts/server.mjs';
+let firm,vendor;
+before(async()=>{firm=await startApp({role:'firm',port:0,persist:false,peerUrl:'#'});vendor=await startApp({role:'vendor',port:0,persist:false,firmUrl:firm.url,peerUrl:firm.url});});
+after(async()=>{await Promise.all([firm,vendor].map(a=>new Promise(r=>a.server.close(r))));});
+const alex='alex.morgan@am100.example',jordan='jordan.lee@am100.example',sam='sam.rivera@am100.example',unknown='jamie.patel@vendor.example',inactive='casey.brooks@am100.example';
+async function post(app,path,data){const r=await fetch(app.url+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return {status:r.status,body:await r.json()};}
+const create=(changes={})=>post(vendor,'/api/workspaces',{name:'Test workspace',clientId:'1001',matterId:'001',emails:[alex,jordan,sam,unknown,inactive],...changes});
+test('firm serves separate Swagger specs, health docs, and self-hosted UI assets',async()=>{for(const key of ['client-matter-validations','ethical-walls']){const page=await fetch(firm.url+'/docs/'+key);assert.equal(page.status,200);assert.match(await page.text(),/SwaggerUIBundle/);const spec=await (await fetch(firm.url+'/docs/'+key+'/openapi.json')).json();assert.equal(spec.openapi,'3.0.3');assert.ok(spec.paths['/api/'+key]);assert.ok(spec.paths['/api/health']);assert.ok(spec.paths['/api/'+key].post.responses['503']);}for(const file of ['swagger-ui.css','swagger-ui-bundle.js'])assert.equal((await fetch(firm.url+'/docs/assets/'+file)).status,200);assert.equal((await fetch(vendor.url+'/docs/ethical-walls')).status,404);});
+const settings=changes=>post(firm,'/api/admin',{action:'settings',mode:'deny',matterApi:true,wallApi:true,...changes});
+test('admin creates and fully edits employees and access rules while API identity remains email',async()=>{
+  const person={action:'person',create:true,name:'Robin Ellis',email:'robin@am100.example',employeeNumber:'E-901',role:'Counsel',active:true};
+  assert.equal((await post(firm,'/api/admin',person)).status,200);
+  assert.equal((await post(firm,'/api/admin',{...person,email:'duplicate@am100.example'})).status,409);
+  assert.equal((await post(firm,'/api/admin',{...person,employeeNumber:'E-902'})).status,409);
+  assert.equal((await post(firm,'/api/admin',{action:'rule',create:true,clientId:'1001',matterId:'001',email:person.email,effect:'deny',reason:'Test restriction'})).status,200);
+  const rule=(await firm.store.read()).rules.find(r=>r.email===person.email);
+  assert.equal((await post(firm,'/api/admin',{...person,create:false,originalEmail:person.email,email:'robin.ellis@am100.example',employeeNumber:'E-903'})).status,200);
+  assert.equal((await firm.store.read()).rules.find(r=>r.id===rule.id).email,'robin.ellis@am100.example');
+  const edit={action:'rule',originalRuleId:rule.id,clientId:'1001',matterId:'001',email:'robin.ellis@am100.example',effect:'allow',reason:'Cleared for access'};
+  assert.equal((await post(firm,'/api/admin',edit)).status,200);
+  const r=await post(firm,'/api/ethical-walls',{clientId:'1001',matterId:'001',emails:[edit.email]});
+  assert.equal(r.body.results[0].allowed,true);assert.equal(JSON.stringify(r.body).includes('employeeNumber'),false);
+  assert.equal((await post(firm,'/api/admin',{action:'delete-person',id:edit.email})).status,200);
+  assert.equal((await firm.store.read()).rules.some(r=>r.id===rule.id),false);
+});
+test('client and matter identifiers can be edited with cascading firm rule updates',async()=>{
+  await post(firm,'/api/admin',{action:'client',create:true,id:'9000',name:'Test Client',active:true});
+  await post(firm,'/api/admin',{action:'matter',create:true,clientId:'9000',id:'099',name:'Test Matter',active:true});
+  await post(firm,'/api/admin',{action:'rule',create:true,clientId:'9000',matterId:'099',email:alex,effect:'deny',reason:'Test restriction'});
+  assert.equal((await post(firm,'/api/admin',{action:'client',originalId:'9000',id:'9001',name:'Renamed Client',active:true})).status,200);
+  assert.equal((await post(firm,'/api/admin',{action:'matter',originalClientId:'9001',originalId:'099',clientId:'9001',id:'100',name:'Renamed Matter',active:false})).status,200);
+  const s=await firm.store.read();assert.ok(s.rules.some(r=>r.clientId==='9001'&&r.matterId==='100'));assert.equal(s.matters.find(m=>m.clientId==='9001').active,false);
+  assert.equal((await post(firm,'/api/admin',{action:'delete-client',id:'9001'})).status,200);
+  assert.equal((await firm.store.read()).rules.some(r=>r.clientId==='9001'),false);
+});
+test('existing firm users receive unique employee numbers without adding them to the vendor',async()=>{
+  const s=await (await fetch(firm.url+'/api/state')).json(),v=await (await fetch(vendor.url+'/api/state')).json();
+  assert.ok(s.people.every(p=>p.employeeNumber));assert.equal(new Set(s.people.map(p=>p.employeeNumber)).size,s.people.length);assert.equal(v.people.some(p=>'employeeNumber' in p),false);
+});
+test('default deny mode makes two real HTTP calls and excludes denied, unknown, and inactive firm people',async()=>{const r=await create();assert.equal(r.status,201);assert.deepEqual(r.body.workspace.members,[alex,sam]);assert.equal(r.body.workspace.excluded.length,3);assert.equal(r.body.trace.length,2);const s=await firm.store.read();assert.equal(s.settings.mode,'deny');assert.equal(s.logs.filter(l=>l.correlationId===r.body.correlationId).length,2);});
+test('invalid, mismatched, closed, and inactive-client matters never create a workspace',async()=>{const before=(await vendor.store.read()).workspaces.length;for(const data of [{matterId:'999'},{clientId:'999'},{clientId:'1003',matterId:'001'}])assert.equal((await create(data)).status,422);await post(firm,'/api/admin',{action:'client',id:'1002',name:'Northstar Holdings',active:false});assert.equal((await create({clientId:'1002'})).status,422);assert.equal((await vendor.store.read()).workspaces.length,before);});
+test('allow-list mode admits only explicit approvals; switching back restores default behavior',async()=>{assert.equal((await settings({mode:'allow'})).status,200);const r=await create();assert.equal(r.status,201);assert.deepEqual(r.body.workspace.members,[alex]);assert.equal(r.body.workspace.excluded.length,4);await settings({});assert.deepEqual((await create()).body.workspace.members,[alex,sam]);});
+test('both API outages fail closed without creating a workspace',async()=>{for(const key of ['matterApi','wallApi']){await settings({[key]:false});const before=(await vendor.store.read()).workspaces.length;const r=await create();assert.equal(r.status,503);assert.equal((await vendor.store.read()).workspaces.length,before);await settings({});}});
+test('no eligible members prevents empty workspace creation',async()=>{const r=await create({emails:[jordan,unknown,inactive]});assert.equal(r.status,422);assert.equal(r.body.excluded.length,3);});
+test('email case and whitespace normalize to a unique identifier',async()=>{const r=await create({emails:[' ALEX.MORGAN@AM100.EXAMPLE ',alex]});assert.equal(r.status,201);assert.deepEqual(r.body.workspace.members,[alex]);});
+test('recheck applies changed firm policy and suspends access if verification becomes unavailable',async()=>{const r=await create();await settings({mode:'allow'});const recheck=await post(vendor,'/api/workspaces/'+r.body.workspace.id+'/recheck',{});assert.deepEqual(recheck.body.workspace.members,[alex]);await settings({wallApi:false});assert.equal((await post(vendor,'/api/workspaces/'+r.body.workspace.id+'/recheck',{})).status,503);const w=(await vendor.store.read()).workspaces.find(w=>w.id===r.body.workspace.id);assert.equal(w.status,'suspended');assert.deepEqual(w.members,[]);await settings({});});
+test('malformed payloads and unknown vendor people are rejected',async()=>{assert.equal((await create({emails:['not-an-email']})).status,400);assert.equal((await create({emails:['stranger@example.com']})).status,400);assert.equal((await post(firm,'/api/admin',{action:'settings',mode:'anything'})).status,400);});
+test('both app pages load and cross-origin browser writes are rejected',async()=>{for(const a of [firm,vendor]){const r=await fetch(a.url);assert.equal(r.status,200);assert.match(await r.text(),/Demo environment/);}const r=await fetch(firm.url+'/api/admin',{method:'POST',headers:{Origin:vendor.url,'Content-Type':'application/json'},body:JSON.stringify({action:'delete-rule',id:'wall-1'})});assert.equal(r.status,403);});
+test('matter flags block incompatible workspaces while preserving a valid client–matter decision',async()=>{
+  await post(firm,'/api/admin',{action:'matter',clientId:'1001',id:'001',name:'Series C financing',active:true,flags:['ITAR','No_Cloud','AI_RESTRICTED','US_DATA_RESIDENCY']});
+  const env={hosting:'cloud',region:'US',aiEnabled:false,externalSharing:false};
+  const v=await post(firm,'/api/client-matter-validations',{clientId:'1001',matterId:'001',environment:env});
+  assert.equal(v.body.valid,true);assert.equal(v.body.workspaceAllowed,false);assert.equal(v.body.aiRestrictionsFlag,'Y');assert.equal(v.body.clientMatterId,'01001-00001');assert.ok(v.body.flags.includes('NO_CLOUD'));
+  assert.equal((await create({emails:[alex],environment:env})).status,422);
+  const good={...env,hosting:'on-premises'};const w=await create({emails:[alex],environment:good});assert.equal(w.status,201);assert.deepEqual(w.body.workspace.environment,good);assert.ok(w.body.workspace.flags.includes('ITAR'));
+  assert.equal((await create({emails:[alex],environment:{...good,aiEnabled:true}})).status,422);
+  assert.equal((await create({emails:[alex],environment:{...good,region:'EU'}})).status,422);
+  await post(firm,'/api/admin',{action:'flag-policy',code:'ITAR',label:'ITAR',description:'Test explicit firm rule',blockCloud:false,blockAI:false,blockExternal:true,allowedRegions:[]});
+  assert.equal((await create({emails:[alex],environment:{...good,externalSharing:true}})).status,422);
+  await post(firm,'/api/admin',{action:'flag-enforcement',enabled:false});assert.equal((await create({emails:[alex],environment:env})).status,201);
+  await post(firm,'/api/admin',{action:'flag-enforcement',enabled:true});
+  await post(firm,'/api/admin',{action:'matter',clientId:'1001',id:'001',name:'Series C financing',active:true,flags:[]});
+});
+test('batch validation, structured errors, and health checks cover reviewed source-spec gaps',async()=>{
+  const r=await post(firm,'/api/client-matter-validations/batch',[{clientId:'1001',matterId:'001'},{clientId:'1001',matterId:'999'}]);assert.equal(r.status,200);assert.deepEqual(r.body.map(v=>v.valid),[true,false]);
+  const bad=await fetch(firm.url+'/api/client-matter-validations',{method:'POST',headers:{'Content-Type':'text/plain'},body:'{}'});assert.equal(bad.status,415);assert.equal((await bad.json()).errorResponse.errors[0].errorCode,'415');
+  assert.equal((await fetch(firm.url+'/api/health')).status,200);await settings({wallApi:false});assert.equal((await fetch(firm.url+'/api/health')).status,503);await settings({});
+});

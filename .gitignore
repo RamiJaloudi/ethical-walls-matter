@@ -1,0 +1,21 @@
+node_modules/
+.local-data/
+*.tar.gz
+.env*
+!.env.example
+
+# Generated deployments have their own Git metadata and site identities.
+/apps/
+# Local review documents, extracted source PDFs, screenshots, and test evidence.
+/outputs/
+/tmp/
+/.github-ready/
+*.log
+*.pid
+*.bak
+*.mdf
+*.ldf
+*.ndf
+.DS_Store
+Thumbs.db
+.vscode/

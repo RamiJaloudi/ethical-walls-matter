@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="title desc">
+<title id="title">Ethical Walls Matter</title><desc id="desc">A law-firm integration lab. Valid matters. Protected teams. Policy before collaboration.</desc>
+<rect width="1280" height="360" rx="20" fill="#102333"/>
+<path d="M940 0V360M1030 0V360M1120 0V360M1210 0V360M850 90H1280M850 180H1280M850 270H1280" stroke="#294455" stroke-width="1"/>
+<rect x="939" y="91" width="180" height="178" rx="14" fill="#193b43" stroke="#649e97"/>
+<path d="M1030 123l44 17v38c0 31-25 53-44 64-19-11-44-33-44-64v-38z" fill="none" stroke="#83d0bf" stroke-width="5"/>
+<path d="M1008 177l15 15 30-34" fill="none" stroke="#83d0bf" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="76" font-family="Segoe UI,Arial,sans-serif" font-size="13" letter-spacing="4" fill="#83d0bf">A LAW-FIRM INTEGRATION LAB</text>
+<text x="62" y="156" font-family="Segoe UI,Arial,sans-serif" font-size="56" font-weight="650" fill="#f5f8fa">Ethical Walls Matter</text>
+<text x="66" y="210" font-family="Segoe UI,Arial,sans-serif" font-size="22" fill="#bdcdd7">Valid matters. Protected teams.</text>
+<text x="66" y="245" font-family="Segoe UI,Arial,sans-serif" font-size="22" fill="#bdcdd7">Policy before collaboration.</text>
+<rect x="66" y="285" width="116" height="30" rx="5" fill="#274554"/><text x="82" y="305" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#d8e7ed">TWO WEB APPS</text>
+<rect x="194" y="285" width="145" height="30" rx="5" fill="#274554"/><text x="210" y="305" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#d8e7ed">REAL HTTP API CALLS</text>
+<rect x="351" y="285" width="120" height="30" rx="5" fill="#274554"/><text x="367" y="305" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#d8e7ed">SQL SERVER</text>
+</svg>

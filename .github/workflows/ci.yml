@@ -1,0 +1,22 @@
+name: Application checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test core behavior with isolated HTTP servers
+        run: npm test
+      - name: Build fresh Worker artifacts
+        run: npm run build
+      - name: Validate firm Worker module
+        run: node --check apps/firm/dist/server/index.js
+      - name: Validate vendor Worker module
+        run: node --check apps/vendor/dist/server/index.js
