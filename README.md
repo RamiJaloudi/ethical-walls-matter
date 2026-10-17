@@ -52,13 +52,13 @@ sequenceDiagram
     SQL-->>Firm: Authoritative firm records
     Firm-->>Vendor: valid + workspaceAllowed + reasons
     alt Invalid matter or incompatible environment
-        Vendor-->>Admin: Reject creation; display reasons
+        Vendor-->>Admin: Reject creation and display reasons
     else Valid and compatible
         Vendor->>Firm: POST /api/ethical-walls
         Firm->>SQL: Read firm users and access rules
         Firm-->>Vendor: Per-email allowed/excluded decisions
         Vendor->>SQL: Save workspace and eligible memberships
-        Vendor-->>Admin: Workspace created; exclusions shown
+        Vendor-->>Admin: Workspace created with exclusions shown
     end
 ```
 
