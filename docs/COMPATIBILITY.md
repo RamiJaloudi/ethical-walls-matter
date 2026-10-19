@@ -12,7 +12,9 @@ The OpenAPI pages document the working demonstration API. They are not a claim o
 - `X-Correlation-ID` is the primary tracing header; `correlationId` is an accepted alias for firm validation. `transactionId` is not implemented.
 - Health reports observed availability. Connection-pool statistics and response-time averages are not implemented.
 
-Legacy routes, different field names, integer IDs, single-person `allowAccess` responses, and external OAuth providers require explicit adapters/configuration. Do not point an existing enterprise vendor at the demo and assume wire compatibility.
+The local Keycloak OAuth lab supports client credentials, audience `am100-api`, and endpoint-specific client roles. Its issuer is `http://localhost:8180/realms/ethical-walls-matter`; the dedicated API is on port 4313, with a token-preserving proxy on 4311. The supplied verifier expects Keycloak signing-key endpoints and role claims. Another OAuth provider requires an explicit adapter/configuration change rather than just substituting its URL.
+
+Legacy routes, different field names, integer IDs, and single-person `allowAccess` responses require explicit adapters. Do not point an existing enterprise vendor at the demo and assume wire compatibility.
 
 ## Local SQL Server versus hosted D1
 
@@ -22,8 +24,7 @@ The project does not establish a secure route from a hosted Worker to a database
 
 ## Production work still required
 
-- Authentication/administrator roles for the local HTTP APIs, tenant isolation, and narrower service scopes.
-- The local OAuth lab already protects integration endpoints using Keycloak client credentials and endpoint roles. Administrator and vendor UI sign-in remain unimplemented; production identity hosting, TLS, and operations remain separate work.
+- Administrator and vendor UI sign-in/authorization and tenant isolation. The local OAuth lab already protects integration endpoints with Keycloak client credentials and endpoint roles; it does not authenticate UI administrators.
 - Trusted vendor hosting/region/feature configuration rather than editable simulation inputs.
 - Automatic membership reconciliation after firm policy changes.
 - Authorization on every document/resource operation, beyond this workspace-creation demonstration.
