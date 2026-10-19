@@ -11,6 +11,8 @@ This is a working demonstration with editable data and actual server-to-server H
 
 ## What you get
 
+**New local OAuth lab:** start with `Start-OAuth.bat` to run Keycloak on [localhost:8180](http://localhost:8180), protected APIs on port **4313**, and both applications. The [Learning Manual](docs/LEARNING-MANUAL.md) provides detailed SSMS, Windows service-account, Keycloak, token, and Swagger exercises. A [Word edition](docs/Ethical-Walls-Matter-Learning-Manual.docx) is included. Docker Desktop must be running with its Linux engine. Initial setup generates credentials only in ignored `.local-data/oauth/` files.
+
 | Application | Purpose | Local URL |
 |---|---|---|
 | **AM100 Firm Control** | Manage clients, matters, users, ethical walls, flags, API availability, and policy | [localhost:4311](http://localhost:4311) |
@@ -91,7 +93,7 @@ The SQL integration has been exercised on Windows with SQL Server Express 2025 (
 - **Isolated tests/build:** `npm test` and `npm run build` do not require SQL Server. These are the checks run in GitHub Actions.
 - **Optional hosted Worker artifacts:** `npm run build` generates separate Cloudflare/D1 artifacts. This does not publish anything and does not migrate your local SQL data. See [deployment boundaries](docs/COMPATIBILITY.md).
 
-There are no npm runtime dependencies to install. Swagger UI assets are vendored with their upstream license. `npm install` is not a setup requirement, and `npm ci` is not used by this repository.
+Run `npm ci` after cloning. The local HTTP host uses the pinned `jose` dependency for JWT verification. Swagger UI assets are vendored with their upstream license. Docker Desktop is additionally required for the local Keycloak OAuth lab; `Start-OAuth.bat` installs npm dependencies and prepares that lab.
 
 ## Installation from scratch
 
@@ -340,7 +342,7 @@ Initial setup needs permission to create the database and its tables/views. The 
 | API activity | `AuditLog` | `vwAuditLog` |
 | Optimistic concurrency | `StateVersions` | Internal transaction control |
 
-There are **13 tables** and **12 views**. The SQL adapter reconstructs each app's data model from these views. Client–matter validation uses `vwClientMatters`; ethical walls combine `vwUsers` and `vwEthicalWalls`; flags come from the flag views.
+There are **13 tables**, **12 administrative/vendor views**, and **7 additional API views** installed by `sql/api-views.sql`. The dedicated OAuth API reads the `api` schema views, which omit employee numbers from `api.Users`, and appends activity through `api.AppendAudit`. The original administrative/vendor SQL adapter continues using the `dbo.vw*` views. The `Am100ApiReader` role grants SELECT only on the seven API views and EXECUTE on the audit procedure. See the [manual](docs/LEARNING-MANUAL.md) for SSMS permissions and a separate Windows API identity.
 
 ### Inspect the database in SSMS
 
@@ -387,6 +389,8 @@ In SSMS, right-click **AM100IntegrationDemo → Tasks → Back Up**, choose a fu
 There is no automatic destructive reset command. Stop the apps and back up first before intentionally rebuilding your demo database. Re-running the launcher is not a reset. An existing `.local-data/firm.json` or `vendor.json` can supply first-import data; it is not continuously synchronized with SQL.
 
 ## Swagger and API examples
+
+With the OAuth lab enabled, obtain a Keycloak token using the [manual token exercise](docs/LEARNING-MANUAL.md#11-request-a-token-manually) and use Swagger's **Authorize** button. The examples below describe business payloads; HTTP calls also need `Authorization: Bearer <access-token>` in OAuth mode. `npm run check:oauth` verifies the live protected APIs on port 4313 without printing credentials.
 
 Both Swagger links are in the AM100 **left sidebar** and at the top of **Overview**. They open in new tabs. Use **Try it out → Execute** to call the current firm origin. Requests appear in API activity.
 
@@ -562,9 +566,9 @@ Start diagnostics with `npm.cmd run doctor`. For startup errors, inspect `.local
 
 ## Security and scope
 
-The local apps bind to loopback and intentionally do not implement end-user HTTP authentication. Windows authentication protects the database connection, not the local web APIs. Use fictional data; this is a demonstration, not a shared production deployment.
+The local apps bind to loopback. When configured by `Start-OAuth.bat`, Keycloak client credentials tokens protect validation, batch validation, and ethical-wall endpoints on the dedicated API host and the firm proxy. The admin and vendor UIs still have no end-user sign-in. Use fictional data; this is a demonstration, not a shared production deployment. Legacy JSON mode and SQL mode without OAuth configuration remain explicit unsecured loopback demos.
 
-The code enforces policy at workspace creation/recheck. It does not implement document storage/access, automatic access revocation, immutable audit retention, tenant isolation, or a full external OAuth identity integration. The SQL adapter uses parameterized commands and transaction/version checks but saves app snapshots rather than targeted production row updates.
+The code enforces policy at workspace creation/recheck. It does not implement document storage/access, automatic access revocation, immutable audit retention, or tenant isolation. OAuth authenticates the vendor application; it does not sign in administrators or employees. The administrative SQL adapter uses parameterized commands and transaction/version checks but saves app snapshots rather than targeted production row updates. The API store reads dedicated views and calls an append procedure instead of rewriting business data.
 
 For shared deployment, see the explicit [production boundaries](docs/COMPATIBILITY.md). GitHub publication publishes source only; it does not expose your database, start a public API, or deploy the web apps.
 

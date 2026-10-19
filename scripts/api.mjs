@@ -1,0 +1,11 @@
+import {startApp} from './server.mjs';
+import {apiSqlStore} from '../src/api-sql-store.mjs';
+import {oauthSettings} from '../src/oauth.mjs';
+import {loadOAuthConfig} from './oauth-config.mjs';
+if(process.env.AM100_OAUTH_ENABLED===undefined)await loadOAuthConfig();
+const oauth=oauthSettings();
+if(!oauth)throw Error('The dedicated API host requires AM100_OAUTH_ENABLED=true.');
+await apiSqlStore().read();
+const api=await startApp({role:'firm',port:Number(process.env.AM100_API_PORT||4313),store:apiSqlStore(),oauth,apiOnly:true,peerUrl:'http://localhost:4311'});
+console.log('OAuth-protected API: '+api.url+'; SQL identity: current Windows process identity');
+process.on('SIGINT',()=>api.server.close());process.on('SIGTERM',()=>api.server.close());

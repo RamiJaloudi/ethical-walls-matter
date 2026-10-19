@@ -23,6 +23,7 @@ The project does not establish a secure route from a hosted Worker to a database
 ## Production work still required
 
 - Authentication/administrator roles for the local HTTP APIs, tenant isolation, and narrower service scopes.
+- The local OAuth lab already protects integration endpoints using Keycloak client credentials and endpoint roles. Administrator and vendor UI sign-in remain unimplemented; production identity hosting, TLS, and operations remain separate work.
 - Trusted vendor hosting/region/feature configuration rather than editable simulation inputs.
 - Automatic membership reconciliation after firm policy changes.
 - Authorization on every document/resource operation, beyond this workspace-creation demonstration.

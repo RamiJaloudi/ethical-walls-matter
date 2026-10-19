@@ -1,6 +1,6 @@
 $ErrorActionPreference='Continue'
 Write-Host 'Project prerequisite check' -ForegroundColor Cyan
-foreach($name in @('node.exe','npm.cmd','git.exe','sqlcmd.exe','powershell.exe')) {
+foreach($name in @('node.exe','npm.cmd','git.exe','sqlcmd.exe','powershell.exe','docker.exe')) {
   $tool=Get-Command $name -ErrorAction SilentlyContinue
   if($tool){Write-Host "[OK] $name : $($tool.Source)"}else{Write-Host "[MISSING] $name" -ForegroundColor Yellow}
 }
@@ -15,7 +15,7 @@ if(Get-Command sqlcmd.exe -ErrorAction SilentlyContinue) {
   & sqlcmd.exe -S $server -E -C -b -l 5 -W -h -1 -Q "SET NOCOUNT ON; SELECT 'SQL Windows authentication: OK'; SELECT CASE WHEN DB_ID('AM100IntegrationDemo') IS NULL THEN 'Database: not created yet (run Start-AM100.bat)' ELSE 'Database: present' END;"
   if($LASTEXITCODE -ne 0){Write-Host '[CHECK] SQL connection failed. See the README troubleshooting section.' -ForegroundColor Yellow}
 }
-foreach($port in @(4311,4312)) {
+foreach($port in @(4311,4312,4313,8180)) {
   $listener=Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
   Write-Host "Port ${port}: $(if($listener){'in use (PID '+$listener.OwningProcess+')'}else{'available'})"
 }

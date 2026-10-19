@@ -6,6 +6,6 @@ $appProcessId=[int](Get-Content -LiteralPath $pidFile)
 $p=Get-CimInstance Win32_Process -Filter "ProcessId=$appProcessId" -ErrorAction SilentlyContinue
 $expected=Join-Path $root 'scripts\dev-sql.mjs'
 if ($p -and $p.Name -eq 'node.exe' -and $p.CommandLine.Contains($expected)) { Stop-Process -Id $appProcessId; Write-Host 'Stopped the SQL-backed apps and APIs. SQL Server and SSMS remain open.' }
-elseif ($p) { throw 'Recorded process no longer matches this launcher. No process was stopped.' }
+elseif ($p) { Write-Warning 'Discarding a stale launcher PID record. The unrelated process was not stopped.' }
 else { Write-Host 'Applications are already stopped.' }
 Remove-Item -LiteralPath $pidFile

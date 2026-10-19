@@ -4,6 +4,10 @@ Set-Location -LiteralPath $root
 if (-not $env:AM100_SQL_SERVER) { $env:AM100_SQL_SERVER = '.\SQLEXPRESS' }
 try {
   Get-Command node.exe, sqlcmd.exe -ErrorAction Stop | Out-Null
+  if (-not (Test-Path -LiteralPath (Join-Path $root 'node_modules\jose\package.json'))) {
+    & npm.cmd ci
+    if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+  }
   if ($env:AM100_SQL_SERVER -eq '.\SQLEXPRESS') {
     $service = Get-Service -Name 'MSSQL$SQLEXPRESS'
     if ($service.Status -ne 'Running') { Start-Service -Name 'MSSQL$SQLEXPRESS' }
@@ -11,6 +15,8 @@ try {
   Write-Host 'Preparing AM100IntegrationDemo database and SQL views...'
   & sqlcmd.exe -S $env:AM100_SQL_SERVER -E -C -b -i (Join-Path $root 'sql\schema.sql')
   if ($LASTEXITCODE -ne 0) { throw 'Database setup failed.' }
+  & sqlcmd.exe -S $env:AM100_SQL_SERVER -E -C -b -i (Join-Path $root 'sql\api-views.sql')
+  if ($LASTEXITCODE -ne 0) { throw 'API SQL view setup failed.' }
   & node.exe (Join-Path $root 'scripts\setup-sql.mjs')
   if ($LASTEXITCODE -ne 0) { throw 'Could not initialize SQL demo records.' }
   $nodePath = (Get-Command node.exe).Source
@@ -25,7 +31,7 @@ try {
     if ($recorded -and $recorded.Name -eq 'node.exe' -and $recorded.CommandLine.Contains($entry)) { $process=Get-Process -Id $recordedId }
   }
   # Reuse only our recorded SQL-backed process, never an unrelated or JSON-backed app.
-  foreach ($port in @(4311,4312)) {
+  foreach ($port in @(4311,4312,4313)) {
     $listener = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     if ($listener -and (-not $process -or $listener.OwningProcess -ne $process.Id)) { throw "Port $port is in use by another application. Stop that application before launching this demo." }
   }

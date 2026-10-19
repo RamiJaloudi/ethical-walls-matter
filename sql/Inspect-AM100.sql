@@ -14,3 +14,11 @@ SELECT * FROM dbo.vwVendorUsers;
 SELECT * FROM dbo.vwWorkspaces;
 SELECT * FROM dbo.vwWorkspaceMembers;
 SELECT TOP (50) * FROM dbo.vwAuditLog ORDER BY at DESC;
+GO
+-- Dedicated OAuth API views (installed by api-views.sql).
+SELECT * FROM api.ClientMatters;
+SELECT * FROM api.Users; -- Email and active status; no employee number.
+SELECT * FROM api.EthicalWalls;
+SELECT * FROM api.MatterFlags;
+SELECT * FROM api.FlagPolicies;
+SELECT * FROM api.Settings;

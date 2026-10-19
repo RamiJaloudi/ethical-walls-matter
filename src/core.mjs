@@ -50,7 +50,7 @@ export function createHandler(role,html) {
       if(role==='firm'&&req.method==='GET'&&path.startsWith('/docs/')) {
         const parts=path.split('/').filter(Boolean),key=parts[1];
         if(key==='assets'&&env.swaggerAssets?.[parts[2]])return new Response(env.swaggerAssets[parts[2]],{headers:{'Content-Type':parts[2].endsWith('.css')?'text/css; charset=utf-8':'application/javascript; charset=utf-8','Cache-Control':'public, max-age=3600','X-Content-Type-Options':'nosniff'}});
-        if(apiDocs[key]&&parts.length===3&&parts[2]==='openapi.json')return json(openApiSpec(key));
+        if(apiDocs[key]&&parts.length===3&&parts[2]==='openapi.json')return json(openApiSpec(key,env.oauthPublic));
         if(apiDocs[key]&&parts.length===2)return new Response(swaggerPage(key),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'self'"}});
         return json({error:'Not found'},404);
       }
@@ -155,6 +155,7 @@ export function createHandler(role,html) {
             const start=Date.now();let result,status;
             try {
               const headers={'Content-Type':'application/json','X-Correlation-ID':correlationId};
+              if(env.getAccessToken)headers.Authorization='Bearer '+await env.getAccessToken();
               if(env.FIRM_SERVICE_TOKEN)headers['OAI-Sites-Authorization']='Bearer '+env.FIRM_SERVICE_TOKEN;
               const r=await fetch(new URL(endpoint,env.FIRM_URL),{method:'POST',headers,body:JSON.stringify(payload),signal:AbortSignal.timeout(8000),redirect:'manual'});
               status=r.status;result=await r.json();
